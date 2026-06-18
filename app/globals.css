@@ -1,0 +1,421 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-vice-black: #0a0a0c;
+  --color-vice-dark: #121016;
+  --color-vice-pink: #ff2e93;
+  --color-vice-magenta: #ff1f6b;
+  --color-vice-orange: #ff7a18;
+  --color-vice-gold: #ffd23f;
+  --color-vice-yellow: #ffe27a;
+  --color-vice-sky: #4a2d6b;
+  --color-vice-teal: #19d3c5;
+  --color-vice-muted: #b7b2c4;
+  --font-display: var(--font-anton);
+  --font-body: var(--font-archivo);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-vice-black);
+  color: #f7f5fb;
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+::selection {
+  background: var(--color-vice-pink);
+  color: #0a0a0c;
+}
+
+.font-display {
+  font-family: var(--font-display), Impact, sans-serif;
+  letter-spacing: 0.005em;
+}
+
+/* ---------- Signature GTA VI logo gradient (vertical pink -> orange -> yellow) ---------- */
+.logo-gradient {
+  background: linear-gradient(
+    180deg,
+    #ff2e93 0%,
+    #ff2e93 18%,
+    #ff5a3c 52%,
+    #ff8a1e 74%,
+    #ffd23f 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 6px 30px rgba(255, 60, 120, 0.35));
+}
+
+.gradient-text {
+  background: linear-gradient(95deg, #ffd23f, #ff7a18 40%, #ff2e93 90%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---------- Warm sunset hero scene ---------- */
+.sunset-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Sky gradient: deep night blue -> purple -> magenta -> orange -> gold at horizon */
+.sunset-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    #100a24 0%,
+    #2a1147 26%,
+    #6b1f5e 48%,
+    #c43a5a 66%,
+    #ff7a3c 82%,
+    #ffc24a 100%
+  );
+}
+
+/* atmospheric haze near the horizon */
+.sunset-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 70% at 50% 92%,
+    rgba(255, 210, 90, 0.55),
+    rgba(255, 120, 60, 0.25) 35%,
+    transparent 60%
+  );
+}
+
+/* The sun, low on the horizon */
+.vice-sun {
+  position: absolute;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 520px;
+  height: 520px;
+  max-width: 95vw;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    #fff4cf 0%,
+    #ffd23f 30%,
+    #ff8a1e 60%,
+    rgba(255, 122, 60, 0) 72%
+  );
+  filter: blur(2px);
+  animation: sun-rise 9s ease-in-out infinite;
+}
+
+@keyframes sun-rise {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.95;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-12px);
+    opacity: 1;
+  }
+}
+
+/* soft drifting clouds */
+.cloud {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  filter: blur(30px);
+  animation: cloud-drift 26s linear infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translateX(-10vw);
+  }
+  to {
+    transform: translateX(110vw);
+  }
+}
+
+/* dark silhouette layer (palms + skyline) sits at the bottom */
+.skyline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 2;
+  line-height: 0;
+}
+
+.skyline svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Fade from scene into page bg */
+.scene-fade {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(
+    180deg,
+    transparent 55%,
+    rgba(10, 10, 12, 0.4) 80%,
+    var(--color-vice-black) 100%
+  );
+  pointer-events: none;
+}
+
+/* ambient warm glow used on inner sections */
+.warm-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ---------- Buttons (Rockstar-style pills) ---------- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 2.2rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0a0a0c;
+  background: #ffffff;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(120deg, #ffd23f, #ff7a18 55%, #ff2e93);
+  box-shadow: 0 12px 36px rgba(255, 60, 120, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: #ffffff;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.95rem 2.2rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f7f5fb;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* platform chip button (PS5 / Xbox style) */
+.btn-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f7f5fb;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-platform:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- Glass cards ---------- */
+.card-glass {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    rgba(36, 24, 48, 0.66) 0%,
+    rgba(18, 16, 22, 0.78) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.card-neon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(150deg, #ff2e93, transparent 45%, #ffd23f);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ---------- Progress bar ---------- */
+.progress-bar {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd23f, #ff7a18 50%, #ff2e93);
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 16px rgba(255, 60, 120, 0.6);
+}
+
+/* ---------- Marquee ticker ---------- */
+.marquee {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+  mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.marquee__track {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2.5rem;
+  padding-right: 2.5rem;
+  animation: scroll-x 30s linear infinite;
+}
+
+@keyframes scroll-x {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ---------- Pulse dot ---------- */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 1.6s ease-in-out infinite;
+}
+
+/* ---------- Reveal ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rise-1 {
+  animation-delay: 0.1s;
+}
+.rise-2 {
+  animation-delay: 0.25s;
+}
+.rise-3 {
+  animation-delay: 0.4s;
+}
+.rise-4 {
+  animation-delay: 0.55s;
+}
+
+/* ---------- Section label ---------- */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-vice-gold);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 26px;
+  height: 1px;
+  background: var(--color-vice-gold);
+}
+
+/* scroll hint */
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(8px);
+    opacity: 1;
+  }
+}
+
+.bob {
+  animation: bob 2s ease-in-out infinite;
+}

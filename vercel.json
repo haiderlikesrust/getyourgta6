@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/claim-fees",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/distribute",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

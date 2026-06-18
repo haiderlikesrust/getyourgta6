@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum RewardStatus {
+  UNCLAIMED
+  CLAIMED
+}
+
+enum ClaimStatus {
+  PENDING
+  VERIFIED
+  REFUNDED
+  EXPIRED
+}
+
+model Reward {
+  id              String       @id @default(cuid())
+  holderWallet    String
+  brand           String       @default("pending")
+  amountUsd       Float
+  giftCardCodeEnc String?
+  status          RewardStatus @default(UNCLAIMED)
+  purchaseClaimId String?      @unique
+  createdAt       DateTime     @default(now())
+  claimedAt       DateTime?
+  claims          Claim[]
+
+  @@index([holderWallet, status])
+}
+
+model Claim {
+  id                   String      @id @default(cuid())
+  rewardId             String
+  reward               Reward      @relation(fields: [rewardId], references: [id])
+  tempPubkey           String
+  tempSecretEnc        String
+  claimTokenHash       String
+  chosenBrand          String
+  verifyAmountLamports BigInt
+  status               ClaimStatus @default(PENDING)
+  verifiedTxSig        String?     @unique
+  refundTxSig          String?
+  activeRewardKey      String?     @unique
+  codeRevealedAt       DateTime?
+  expiresAt            DateTime
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([rewardId, status])
+}
+
+model LedgerState {
+  id                  String    @id @default("singleton")
+  allocatedUsd        Float     @default(0)
+  lastRunAt           DateTime?
+  isProcessing        Boolean   @default(false)
+  processingStartedAt DateTime?
+}
+
+model HolderSnapshot {
+  id          String   @id @default(cuid())
+  takenAt     DateTime @default(now())
+  holderCount Int
+  json        String
+}
