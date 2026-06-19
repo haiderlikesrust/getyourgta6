@@ -1,0 +1,4 @@
+getyourgta6.fun {
+	encode gzip
+	reverse_proxy app:3000
+}

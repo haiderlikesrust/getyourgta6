@@ -1,0 +1,31 @@
+# dependencies
+node_modules
+npm-debug.log*
+
+# next.js
+.next
+out
+
+# env (inject at runtime via compose / -e)
+.env
+.env.*
+!.env.example
+
+# git / IDE
+.git
+.gitignore
+.cursor
+.vscode
+
+# local database
+prisma/*.db
+prisma/*.db-journal
+dev.db
+dev.db-journal
+
+# misc
+README.md
+terminals
+*.md
+coverage
+.DS_Store

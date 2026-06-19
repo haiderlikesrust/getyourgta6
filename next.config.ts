@@ -21,6 +21,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   serverExternalPackages: ["@prisma/client", "prisma", "@pump-fun/pump-sdk"],
   outputFileTracingRoot: path.join(__dirname),
   async headers() {

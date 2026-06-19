@@ -1,0 +1,8 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Pump.fun creator fee claims — every 10 minutes
+*/10 * * * * sh /scripts/cron-claim-fees.sh
+
+# Holder distribution — hourly
+0 * * * * sh /scripts/cron-distribute.sh
