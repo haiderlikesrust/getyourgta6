@@ -4,7 +4,9 @@ set -e
 cd /app
 
 echo "Applying database schema..."
-./node_modules/.bin/prisma db push --skip-generate
+prisma db push --skip-generate --schema=./prisma/schema.prisma
+
+chown -R nextjs:nodejs /data
 
 echo "Starting Next.js on port ${PORT:-3000}..."
-exec node server.js
+exec su -s /bin/sh nextjs -c "node server.js"
