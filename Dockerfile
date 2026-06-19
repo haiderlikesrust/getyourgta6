@@ -15,6 +15,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN mkdir -p public
 
 # Prisma + Next need a DATABASE_URL at build time (schema only; no real DB required)
 ENV DATABASE_URL="file:/tmp/build.db"
