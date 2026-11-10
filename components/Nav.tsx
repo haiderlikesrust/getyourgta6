@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BRAND } from "@/lib/brand";
+import { XIcon } from "./ContractAddress";
 import { Logo } from "./Logo";
 import { useEntry } from "./site-data";
 import { WalletButton } from "./wallet";
@@ -54,6 +55,16 @@ export function Nav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3 lg:ml-0">
+          <a
+            href={BRAND.xUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${BRAND.xHandle} on X`}
+            title={`${BRAND.xHandle} on X`}
+            className="hidden h-10 w-10 place-items-center rounded-full text-cream/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)] transition hover:text-gold sm:grid"
+          >
+            <XIcon />
+          </a>
           <Link
             href="/claim"
             className={`label hidden rounded-full px-3.5 py-2 transition sm:inline-flex ${
@@ -96,6 +107,15 @@ export function Nav() {
               {link.label}
             </Link>
           ))}
+          <a
+            href={BRAND.xUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-display flex items-center gap-3 py-3 text-3xl"
+          >
+            <XIcon className="h-6 w-6" />
+            {BRAND.xHandle}
+          </a>
         </nav>
       )}
     </header>

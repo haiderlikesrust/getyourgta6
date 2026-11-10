@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { ContractAddress, XIcon } from "./ContractAddress";
 import { Logo } from "./Logo";
 import { useStats } from "./site-data";
 
@@ -32,16 +33,27 @@ export function Footer() {
               <FooterLink href="/#winners">Winners</FooterLink>
               <FooterLink href="/claim">Claim a win</FooterLink>
             </div>
-            {(site?.buyUrl || site?.xUrl || site?.telegramUrl) && (
-              <div className="flex flex-col gap-2.5">
-                <p className="label text-gold">Coin</p>
-                {site.buyUrl && <FooterLink href={site.buyUrl} external>Buy {site.symbol ?? "the coin"}</FooterLink>}
-                {site.xUrl && <FooterLink href={site.xUrl} external>X / Twitter</FooterLink>}
-                {site.telegramUrl && <FooterLink href={site.telegramUrl} external>Telegram</FooterLink>}
-              </div>
-            )}
+            <div className="flex flex-col gap-2.5">
+              <p className="label text-gold">Coin</p>
+              <a
+                href={BRAND.xUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-cream/80 transition hover:text-gold"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+                {BRAND.xHandle}
+              </a>
+              {site?.buyUrl && (
+                <FooterLink href={site.buyUrl} external>
+                  Buy {site.symbol ?? "the coin"}
+                </FooterLink>
+              )}
+            </div>
           </div>
         </div>
+
+        <ContractAddress variant="plain" className="mt-10" />
 
         <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.07] pt-6 text-xs leading-relaxed text-haze md:flex-row md:justify-between">
           <p className="max-w-3xl">

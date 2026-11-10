@@ -43,9 +43,8 @@ export interface TreasuryEventRow {
 
 export interface SiteInfo {
   symbol: string | null;
+  /** the coin's pump.fun page, built from the CA */
   buyUrl: string | null;
-  xUrl: string | null;
-  telegramUrl: string | null;
 }
 
 export interface Stats {

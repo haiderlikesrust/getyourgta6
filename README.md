@@ -79,7 +79,7 @@ without creating a reward.
 
 ## Going live checklist
 
-- `TOKEN_MINT`, `HELIUS_API_KEY`, `SOLANA_RPC_URL`, a dedicated
+- `CA` (the coin's contract address), `HELIUS_API_KEY`, `SOLANA_RPC_URL`, a dedicated
   `REWARD_WALLET_SECRET` with a little SOL for fees.
 - `PUMP_CREATOR_WALLET_SECRET` if the coin's creator wallet is not the treasury.
 - Bitrefill: `BITREFILL_API_KEY`, `BITREFILL_MODE=live`,

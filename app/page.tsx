@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Band } from "@/components/Band";
+import { ContractAddress } from "@/components/ContractAddress";
 import { EntryTicket } from "@/components/EntryTicket";
 import { Faq } from "@/components/Faq";
 import { Footer } from "@/components/Footer";
@@ -46,6 +47,9 @@ export default function HomePage() {
               </p>
 
               <HeroActions />
+              <div className="rise rise-4 mt-6 empty:hidden">
+                <ContractAddress />
+              </div>
               <HeroFacts />
             </div>
 

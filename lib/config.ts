@@ -37,7 +37,22 @@ function parseList(name: string): string[] {
 
 export const config = {
   heliusApiKey: () => process.env.HELIUS_API_KEY ?? "",
-  tokenMint: () => requireEnv("TOKEN_MINT"),
+  /**
+   * The coin's contract address: shown on the site and used for the draw.
+   * Set it as `CA` in .env (the older name TOKEN_MINT still works).
+   */
+  tokenMint: () => {
+    const value = process.env.CA?.trim() || process.env.TOKEN_MINT?.trim();
+    if (!value) {
+      throw new Error("Missing required environment variable: CA");
+    }
+    return value;
+  },
+  /** the CA only if it is a real Solana address (null while unset or a placeholder) */
+  contractAddress: (): string | null => {
+    const value = process.env.CA?.trim() || process.env.TOKEN_MINT?.trim();
+    return value && isValidSolanaAddress(value) ? value : null;
+  },
   solanaRpcUrl: () =>
     optionalEnv(
       "SOLANA_RPC_URL",
@@ -170,17 +185,11 @@ export const config = {
     const raw = process.env.TOKEN_SYMBOL?.trim().replace(/^\$+/, "");
     return raw ? `$${raw}` : BRAND.ticker;
   },
-  /** where "get the coin" points; defaults to the pump.fun page for TOKEN_MINT */
+  /** where "get the coin" points: the coin's pump.fun page, built from the CA */
   buyUrl: (): string | null => {
-    const explicit = process.env.BUY_URL?.trim();
-    if (explicit) return explicit;
-    const mint = process.env.TOKEN_MINT?.trim();
-    return mint && mint !== "your_token_mint_address"
-      ? `https://pump.fun/coin/${mint}`
-      : null;
+    const ca = config.contractAddress();
+    return ca ? `https://pump.fun/coin/${ca}` : null;
   },
-  xUrl: (): string | null => process.env.X_URL?.trim() || null,
-  telegramUrl: (): string | null => process.env.TELEGRAM_URL?.trim() || null,
   /** short name for the creator-reward token in the public paper trail */
   rewardTokenSymbol: () => optionalEnv("REWARD_TOKEN_SYMBOL", "TTWO").trim(),
 

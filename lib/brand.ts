@@ -12,6 +12,9 @@ export const BRAND = {
   url: "https://gta6fund.xyz",
   coinName: "GTA 6 Fund",
   ticker: "$GTA6FUND",
+  /** the project's X (Twitter) account */
+  xHandle: "@gta6fundsol",
+  xUrl: "https://x.com/gta6fundsol",
   tagline: "Every time the pot can buy a card, somebody gets their GTA 6.",
   description:
     "Connect a wallet and opt in for free, or hold 0.1% of the coin for 10x odds. The pot is checked every 5 minutes, and whenever it can cover a $100 PlayStation or Xbox gift card, one wallet wins it. Unofficial fan project, not affiliated with Rockstar Games.",

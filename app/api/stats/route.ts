@@ -102,12 +102,8 @@ export async function GET(request: NextRequest) {
       rewardWallet = null;
     }
 
-    let tokenMint: string | null = null;
-    try {
-      tokenMint = config.tokenMint();
-    } catch {
-      tokenMint = null;
-    }
+    // the contract address shown on the site; null until a real one is set
+    const tokenMint = config.contractAddress();
 
     return NextResponse.json({
       balanceSol: treasury.solBalance,
@@ -131,8 +127,6 @@ export async function GET(request: NextRequest) {
       site: {
         symbol: config.tokenSymbol(),
         buyUrl: config.buyUrl(),
-        xUrl: config.xUrl(),
-        telegramUrl: config.telegramUrl(),
       },
       recentWinners: recentRewards.map((r) => ({
         id: r.id,
