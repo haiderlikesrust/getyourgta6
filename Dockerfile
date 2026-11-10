@@ -10,7 +10,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 FROM base AS deps
 COPY package.json package-lock.json ./
 # Skip postinstall (prisma generate): the schema isn't copied yet; the builder runs it.
-RUN npm ci --ignore-scripts --no-audit --no-fund
+# - The cache mount keeps downloaded packages on the build host between builds.
+# - npm waits 5 minutes on a stalled download by default; give up after 30 s and retry instead.
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --ignore-scripts --no-audit --no-fund \
+      --fetch-timeout=30000 --fetch-retries=6 \
+      --fetch-retry-mintimeout=2000 --fetch-retry-maxtimeout=15000
 
 FROM base AS builder
 RUN apt-get update \
@@ -42,13 +47,15 @@ ENV NODE_ENV=production \
     NEXT_MANUAL_SIG_HANDLE=true \
     WORKER_ENABLED=true
 
-RUN apt-get update \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+  apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs \
   # Full Prisma CLI with engines, for the schema sync at start
-  && npm install -g prisma@6.19.3 --no-audit --no-fund
+  && npm install -g prisma@6.19.3 --no-audit --no-fund \
+       --fetch-timeout=30000 --fetch-retries=6
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
