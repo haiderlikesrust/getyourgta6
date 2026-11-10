@@ -1,0 +1,5 @@
+# Shell scripts and cron files run inside Linux containers: always LF.
+*.sh text eol=lf
+*.mjs text eol=lf
+docker/crontab text eol=lf
+Dockerfile text eol=lf
