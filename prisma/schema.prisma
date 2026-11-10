@@ -27,6 +27,22 @@ model Reward {
   giftCardCodeEnc String?
   status          RewardStatus @default(UNCLAIMED)
   purchaseClaimId String?      @unique
+  /// "holder" = held the boost threshold at draw time, "open" = free opt-in entry
+  tier            String       @default("holder")
+  /// tickets this wallet had in the draw
+  weight          Int          @default(1)
+  /// total tickets in the draw
+  poolTickets     Int          @default(0)
+  /// what this prize reserved from the treasury (gift card value + buffer)
+  costUsd         Float        @default(0)
+  /// provider invoice opened for this prize; reused on retry so it is never paid twice
+  invoiceId       String?
+  invoiceAt       DateTime?
+  /// signature of the on-chain payment, stored before it is broadcast
+  fundingTxSig    String?
+  paymentAt       DateTime?
+  /// set once the payment is confirmed and the reservation is released
+  fundedAt        DateTime?
   createdAt       DateTime     @default(now())
   claimedAt       DateTime?
   claims          Claim[]
@@ -61,6 +77,32 @@ model LedgerState {
   lastRunAt           DateTime?
   isProcessing        Boolean   @default(false)
   processingStartedAt DateTime?
+}
+
+/// A wallet that connected and opted in to the draw (signature verified).
+model Entry {
+  wallet    String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Public paper trail: fee claims, Jupiter swaps, card top-ups.
+model TreasuryEvent {
+  id        String   @id @default(cuid())
+  kind      String
+  usdValue  Float    @default(0)
+  txSig     String?
+  detail    String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Cross-process lease so a job never runs twice at once (two containers
+/// overlap for a moment during a zero-downtime update).
+model JobLock {
+  name        String   @id
+  lockedUntil DateTime
 }
 
 model HolderSnapshot {

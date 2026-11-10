@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build and start getyourgta6.fun (run from repo root, after .env is configured).
+# Plain docker-compose deploy of gta6fund.xyz (run from repo root, after .env is configured).
+# This path restarts the site on every update. For zero-downtime updates use Dokploy: docs/DOKPLOY.md
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -21,4 +22,4 @@ echo "Deployment started. Check status:"
 echo "  docker compose ps"
 echo "  docker compose logs -f app"
 echo ""
-echo "Site: https://getyourgta6.fun (after DNS points to this server)"
+echo "Site: https://gta6fund.xyz (after DNS points to this server)"

@@ -1,50 +1,79 @@
+"use client";
+
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
+import { Logo } from "./Logo";
+import { useStats } from "./site-data";
 
 export function Footer() {
+  const { stats } = useStats();
+  const site = stats?.site;
+
   return (
-    <footer className="relative overflow-hidden border-t border-white/10 bg-vice-black py-16">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-vice-pink to-transparent" />
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
+    <footer className="relative bg-ink px-5 pb-10 pt-16 sm:px-8">
+      <div className="horizon-rule absolute inset-x-0 top-0" />
+      <div className="mx-auto max-w-[1320px]">
+        <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div className="max-w-md">
-            <p className="font-display text-2xl tracking-[0.2em] text-white">
-              GTA<span className="logo-gradient">VI</span>
-            </p>
-            <p className="mt-4 text-sm leading-relaxed text-vice-muted">
-              Unofficial fan project. Not affiliated with Rockstar Games, Take-Two
-              Interactive, PlayStation, Xbox, or Bitrefill. All trademarks belong
-              to their respective owners.
+            <Logo />
+            <p className="mt-5 text-sm leading-relaxed text-haze">
+              Unofficial fan-run giveaway. Not affiliated with, endorsed by or
+              connected to Rockstar Games, Take-Two Interactive, Sony Interactive
+              Entertainment, Microsoft or any gift card retailer. All trademarks
+              belong to their owners and are used only to describe the prize.
             </p>
           </div>
-          <div className="flex flex-col gap-3">
-            <p className="text-xs uppercase tracking-widest text-vice-muted">
-              Navigate
-            </p>
-            <Link
-              href="/claim"
-              className="text-sm text-white/80 transition hover:text-vice-teal"
-            >
-              Claim Reward
-            </Link>
-            <Link
-              href="/#pool"
-              className="text-sm text-white/80 transition hover:text-vice-teal"
-            >
-              Reward Pool
-            </Link>
-            <Link
-              href="/#how-it-works"
-              className="text-sm text-white/80 transition hover:text-vice-teal"
-            >
-              How It Works
-            </Link>
+
+          <div className="flex gap-14">
+            <div className="flex flex-col gap-2.5">
+              <p className="label text-gold">Site</p>
+              <FooterLink href="/#enter">Get in</FooterLink>
+              <FooterLink href="/#pot">The pot</FooterLink>
+              <FooterLink href="/#winners">Winners</FooterLink>
+              <FooterLink href="/claim">Claim a win</FooterLink>
+            </div>
+            {(site?.buyUrl || site?.xUrl || site?.telegramUrl) && (
+              <div className="flex flex-col gap-2.5">
+                <p className="label text-gold">Coin</p>
+                {site.buyUrl && <FooterLink href={site.buyUrl} external>Buy {site.symbol ?? "the coin"}</FooterLink>}
+                {site.xUrl && <FooterLink href={site.xUrl} external>X / Twitter</FooterLink>}
+                {site.telegramUrl && <FooterLink href={site.telegramUrl} external>Telegram</FooterLink>}
+              </div>
+            )}
           </div>
         </div>
-        <div className="mt-12 flex flex-col gap-2 border-t border-white/5 pt-6 text-xs text-vice-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Vice City vibes. Holder rewards powered by Solana.</p>
-          <p>© {new Date().getFullYear()} GTA VI Holder Rewards</p>
+
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.07] pt-6 text-xs leading-relaxed text-haze md:flex-row md:justify-between">
+          <p className="max-w-3xl">
+            No purchase necessary to enter. Free entry and holder entry are drawn
+            from the same pool. Void where prohibited; you are responsible for
+            your local rules and taxes. Memecoins are highly volatile and can go
+            to zero — nothing here is financial advice.
+          </p>
+          <p className="shrink-0">© {new Date().getFullYear()} {BRAND.name}</p>
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterLink({
+  href,
+  external,
+  children,
+}: {
+  href: string;
+  external?: boolean;
+  children: React.ReactNode;
+}) {
+  const cls = "text-sm text-cream/80 transition hover:text-gold";
+  return external ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+      {children}
+    </a>
+  ) : (
+    <Link href={href} className={cls}>
+      {children}
+    </Link>
   );
 }

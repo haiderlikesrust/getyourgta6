@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyClaimToken } from "@/lib/auth";
-import { purchaseGiftCard } from "@/lib/bitrefill";
+import { purchaseGiftCard, type PurchaseState } from "@/lib/bitrefill";
 import { config, formatPlatformLabel } from "@/lib/config";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
@@ -18,6 +18,7 @@ import {
   refundVerification,
   sweepTempWalletToReward,
 } from "@/lib/solana";
+import { logTreasuryEvent, markRewardFunded } from "@/lib/treasury";
 import type { Claim, Reward } from "@prisma/client";
 
 interface GiftCardDetails {
@@ -200,6 +201,50 @@ async function releasePurchaseLock(claimId: string, rewardId: string) {
   });
 }
 
+/**
+ * Purchase progress is stored on the reward, so a timeout or restart resumes
+ * the same provider invoice and on-chain payment instead of paying again.
+ */
+function purchaseStateFor(reward: Reward): PurchaseState {
+  const where = { id: reward.id };
+  return {
+    invoiceId: reward.invoiceId,
+    invoiceAt: reward.invoiceAt,
+    paymentTxSig: reward.fundingTxSig,
+    paymentAt: reward.paymentAt,
+    async saveInvoice(invoiceId) {
+      await prisma.reward.update({
+        where,
+        data: { invoiceId, invoiceAt: new Date() },
+      });
+    },
+    async savePayment(signature) {
+      await prisma.reward.update({
+        where,
+        data: { fundingTxSig: signature, paymentAt: new Date() },
+      });
+    },
+    async confirmPayment(signature, detail) {
+      const first = await markRewardFunded(reward.id, signature);
+      if (first) {
+        await logTreasuryEvent("prize_paid", reward.amountUsd, signature, detail);
+      }
+    },
+    async clearPayment() {
+      await prisma.reward.updateMany({
+        where: { id: reward.id, fundedAt: null },
+        data: { fundingTxSig: null, paymentAt: null },
+      });
+    },
+    async clearInvoice() {
+      await prisma.reward.update({
+        where,
+        data: { invoiceId: null, invoiceAt: null },
+      });
+    },
+  };
+}
+
 async function fulfillClaim(claim: ClaimWithReward) {
   const tempSecret = decrypt(claim.tempSecretEnc, config.encryptionKey());
   const tempKeypair = keypairFromSecret(tempSecret);
@@ -228,6 +273,7 @@ async function fulfillClaim(claim: ClaimWithReward) {
         const purchase = await purchaseGiftCard(
           claim.reward.amountUsd,
           claim.chosenBrand,
+          purchaseStateFor(reward),
         );
         const giftCardCodeEnc = encrypt(
           JSON.stringify({

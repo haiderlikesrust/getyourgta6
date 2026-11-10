@@ -1,33 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { shortAddress } from "@/lib/format";
+import { useStats } from "./site-data";
 
 interface DistributeResult {
   status: string;
   reason?: string;
   holderWallet?: string;
+  winnerTier?: string;
   eligibleHolders?: number;
-  totalHolders?: number;
+  totalTickets?: number;
 }
 
+/** Dev-only: fires simulated draws on an interval when TEST_MODE=true. */
 export function TestModeTicker() {
-  const [enabled, setEnabled] = useState(false);
-  const [intervalMs, setIntervalMs] = useState(10_000);
+  const { stats, refresh } = useStats();
+  const enabled = stats?.testMode ?? false;
+  const intervalMs = stats?.testIntervalMs ?? 10_000;
   const [lastResult, setLastResult] = useState<DistributeResult | null>(null);
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.testMode) {
-          setEnabled(true);
-          setIntervalMs(data.testIntervalMs ?? 10_000);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -43,45 +36,36 @@ export function TestModeTicker() {
         setError(null);
         setLastResult(data);
         setLastRun(new Date().toLocaleTimeString());
-        window.dispatchEvent(new Event("stats-refresh"));
+        refresh();
       } catch {
         setError("Network error");
       }
     }
 
-    tick();
+    void tick();
     const id = setInterval(tick, intervalMs);
     return () => clearInterval(id);
-  }, [enabled, intervalMs]);
+  }, [enabled, intervalMs, refresh]);
 
   if (!enabled) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-vice-gold/40 bg-vice-black/90 p-4 text-sm shadow-xl backdrop-blur-md">
-      <p className="font-display text-xs uppercase tracking-widest text-vice-gold">
-        Test Mode Active
+    <div className="panel fixed bottom-4 right-4 z-50 max-w-xs p-4 text-sm">
+      <p className="label text-gold">Test mode</p>
+      <p className="mt-1 text-haze">
+        Simulated draw every {intervalMs / 1000}s. No funds move.
       </p>
-      <p className="mt-1 text-vice-muted">
-        Picking a random holder every {intervalMs / 1000}s · Treasury simulated
-        at $100
-      </p>
-      {lastRun && (
-        <p className="mt-2 text-xs text-vice-muted">Last run: {lastRun}</p>
-      )}
+      {lastRun && <p className="mt-2 text-xs text-haze">Last run {lastRun}</p>}
       {lastResult?.status === "distributed" && lastResult.holderWallet && (
-        <p className="mt-1 font-mono text-xs text-vice-teal">
-          Winner: {lastResult.holderWallet.slice(0, 8)}...
-          {lastResult.holderWallet.slice(-4)}
+        <p className="mt-1 font-mono text-xs text-teal">
+          {shortAddress(lastResult.holderWallet)} · {lastResult.winnerTier} ·{" "}
+          {lastResult.totalTickets} tickets
         </p>
       )}
       {lastResult?.status === "skipped" && (
-        <p className="mt-1 text-xs text-vice-pink">
-          Skipped: {lastResult.reason}
-          {lastResult.totalHolders != null &&
-            ` (${lastResult.eligibleHolders ?? 0}/${lastResult.totalHolders} eligible)`}
-        </p>
+        <p className="mt-1 text-xs text-rose">Skipped: {lastResult.reason}</p>
       )}
-      {error && <p className="mt-1 text-xs text-vice-pink">{error}</p>}
+      {error && <p className="mt-1 text-xs text-rose">{error}</p>}
     </div>
   );
 }

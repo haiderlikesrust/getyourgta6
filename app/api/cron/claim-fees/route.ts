@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeCron } from "@/lib/cron-auth";
-import { claimPumpCreatorFees } from "@/lib/pump-fees";
+import { runTreasuryJob } from "@/lib/jobs";
 import { rateLimit } from "@/lib/rate-limit";
-import { safeClientError } from "@/lib/security";
 
+/**
+ * Manual / external trigger for the treasury job (claim creator rewards, swap
+ * to SOL on Jupiter). The in-app scheduler runs the same job every 5 minutes
+ * when WORKER_ENABLED=true.
+ */
 export async function GET(request: NextRequest) {
   const limited = rateLimit(request, {
     key: "cron-claim-fees",
@@ -16,21 +20,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const result = await claimPumpCreatorFees();
-    const statusCode = result.status === "error" ? 500 : 200;
-    return NextResponse.json(result, { status: statusCode });
-  } catch (error) {
-    console.error("Pump fee claim error:", error);
-    return NextResponse.json(
-      {
-        status: "error",
-        reason: "claim_transaction_failed",
-        message: safeClientError(error, "Claim transaction failed."),
-      },
-      { status: 500 },
-    );
-  }
+  const result = await runTreasuryJob();
+  // keep the SOL claim's fields at the top level for older scripts
+  return NextResponse.json(
+    { ...result.solClaim, ...result, status: result.status },
+    { status: result.status === "error" ? 500 : 200 },
+  );
 }
 
 export async function POST(request: NextRequest) {

@@ -1,172 +1,94 @@
 import Link from "next/link";
+import { Band } from "@/components/Band";
+import { EntryTicket } from "@/components/EntryTicket";
+import { Faq } from "@/components/Faq";
 import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { Marquee } from "@/components/Marquee";
-import { RecentWinners, StatsPanel } from "@/components/StatsPanel";
+import { HeroActions, HeroFacts, HeroKicker } from "@/components/HeroActions";
+import { HowItWorks } from "@/components/HowItWorks";
+import { Nav } from "@/components/Nav";
+import { Pot } from "@/components/Pot";
+import { Reveal } from "@/components/Reveal";
+import { SunsetScene } from "@/components/SunsetScene";
 import { TestModeTicker } from "@/components/TestModeTicker";
-import { ViceBackground } from "@/components/ViceBackground";
+import { WaysIn } from "@/components/WaysIn";
+import { Winners } from "@/components/Winners";
+import { DRAW_INTERVAL_MINUTES } from "@/lib/brand";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen">
-      <Header />
+    <>
+      <Nav />
 
       <main>
-        {/* ---------- HERO ---------- */}
-        <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-24 text-center">
-          <ViceBackground />
+        {/* ------------------------------ hero ------------------------------ */}
+        <section className="relative flex min-h-[100svh] items-center overflow-hidden pb-24 pt-[calc(var(--nav-h)+2.5rem)]">
+          <SunsetScene />
 
-          <div className="relative z-10 max-w-5xl pb-24">
-            <p className="eyebrow rise rise-1 mx-auto mb-6 w-fit">
-              Holder Rewards Program
-            </p>
+          <div className="relative z-10 mx-auto grid w-full max-w-[1320px] items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1.4fr_1fr]">
+            <div>
+              <HeroKicker />
 
-            <h1 className="rise rise-2 font-display leading-[0.8] tracking-wide text-white">
-              <span className="block text-3xl sm:text-4xl">GRAND THEFT AUTO</span>
-              <span className="logo-gradient block text-8xl sm:text-[12rem] md:text-[15rem]">
-                VI
-              </span>
-            </h1>
+              <h1 className="h-display rise rise-2 mt-6 text-[clamp(3.7rem,8.6vw,8rem)] drop-shadow-[0_6px_30px_rgba(10,5,18,0.55)]">
+                <span className="block whitespace-nowrap">Your GTA&nbsp;6.</span>
+                <span className="relative block whitespace-nowrap">
+                  <span className="text-sunset">On the</span>{" "}
+                  <span className="script neon-pink relative -top-[0.04em] inline-block -rotate-6 text-[0.92em] leading-none">
+                    house
+                  </span>
+                </span>
+              </h1>
 
-            <p className="rise rise-3 mt-2 font-display text-3xl tracking-wide text-white sm:text-5xl">
-              VICE CITY, <span className="gradient-text">USA.</span>
-            </p>
+              <p className="rise rise-3 mt-7 max-w-xl text-lg leading-relaxed text-cream/85 sm:text-xl">
+                The pot is checked every {DRAW_INTERVAL_MINUTES} minutes. The
+                moment it can cover a $100 PlayStation or Xbox gift card, one
+                wallet walks away with it. Entering is free. Holding the coin
+                stacks the odds.
+              </p>
 
-            <p className="rise rise-3 mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg">
-              Every hour the reward wallet is checked. When{" "}
-              <span className="text-white">$100+ in SOL</span> accumulates, a random
-              pump.fun token holder wins a{" "}
-              <span className="text-white">GTA 6 pre-order gift card</span> —
-              PlayStation 5 or Xbox Series X|S.
-            </p>
-
-            <div className="rise rise-4 mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/claim" className="btn-primary">
-                Claim Your Reward
-              </Link>
-              <a href="#how-it-works" className="btn-secondary">
-                How It Works
-              </a>
+              <HeroActions />
+              <HeroFacts />
             </div>
-          </div>
 
-          <div className="bob absolute bottom-8 left-1/2 z-10 -translate-x-1/2 text-xs uppercase tracking-[0.3em] text-white/80">
-            Scroll for more content
-          </div>
-        </section>
-
-        <Marquee />
-
-        {/* ---------- LIVE POOL ---------- */}
-        <section id="pool" className="relative overflow-hidden px-6 py-28">
-          <div
-            className="warm-glow"
-            style={{
-              top: "10%",
-              left: "12%",
-              width: 360,
-              height: 360,
-              background: "rgba(255, 122, 24, 0.2)",
-            }}
-          />
-          <div className="relative z-10 mx-auto max-w-4xl">
-            <div className="mb-12 text-center">
-              <p className="eyebrow mx-auto mb-4 w-fit">Live On Chain</p>
-              <h2 className="font-display text-4xl tracking-wide text-white sm:text-6xl">
-                THE <span className="gradient-text">REWARD POOL</span>
-              </h2>
-            </div>
-            <StatsPanel />
-          </div>
-        </section>
-
-        {/* ---------- HOW IT WORKS ---------- */}
-        <section
-          id="how-it-works"
-          className="relative overflow-hidden border-y border-white/5 bg-vice-dark px-6 py-28"
-        >
-          <div className="relative z-10 mx-auto max-w-5xl">
-            <div className="mb-16 text-center">
-              <p className="eyebrow mx-auto mb-4 w-fit">The Mechanics</p>
-              <h2 className="font-display text-4xl tracking-wide text-white sm:text-6xl">
-                HOW IT <span className="gradient-text">WORKS</span>
-              </h2>
-            </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              <StepCard
-                number="01"
-                title="The Pool Grows"
-                description="Trading fees and contributions flow into the reward wallet. Every hour we check if the available balance reaches $100 USD in SOL."
-              />
-              <StepCard
-                number="02"
-                title="Random Winner"
-                description="When the threshold is met, we snapshot all token holders via Helius and pick a random eligible wallet."
-              />
-              <StepCard
-                number="03"
-                title="Claim & Choose"
-                description="Winners pick PlayStation or Xbox, send 0.01 SOL to verify their wallet, get refunded, and receive their gift card."
-              />
+            <div className="rise rise-4 flex justify-center lg:justify-end">
+              <div className="w-full max-w-[430px] lg:rotate-2">
+                <EntryTicket />
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ---------- RECENT WINNERS ---------- */}
-        <section className="relative overflow-hidden px-6 py-28">
-          <div className="relative z-10 mx-auto max-w-4xl">
-            <div className="mb-12 text-center">
-              <p className="eyebrow mx-auto mb-4 w-fit">Hall Of Fame</p>
-              <h2 className="font-display text-4xl tracking-wide text-white sm:text-6xl">
-                RECENT <span className="gradient-text">WINNERS</span>
-              </h2>
-            </div>
-            <RecentWinners />
-          </div>
-        </section>
+        <Band />
+        <WaysIn />
+        <Pot />
+        <HowItWorks />
+        <Winners />
+        <Faq />
 
-        {/* ---------- CTA ---------- */}
-        <section className="relative overflow-hidden px-6 py-28">
-          <ViceBackground withSun={false} />
-          <div className="relative z-10 mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-5xl tracking-wide text-white sm:text-7xl">
-              GOT A <span className="gradient-text">WIN?</span>
+        {/* ------------------------------ closer ------------------------------ */}
+        <section className="relative overflow-hidden px-5 py-32 sm:px-8 sm:py-44">
+          <SunsetScene id="closer" shade={false} />
+          <div className="absolute inset-0 bg-ink/45" aria-hidden />
+          <Reveal className="relative z-10 mx-auto max-w-4xl text-center">
+            <p className="script neon-pink -rotate-3 text-5xl sm:text-6xl">wish you were here</p>
+            <h2 className="h-display mt-4 text-[clamp(3.4rem,10vw,8rem)] drop-shadow-[0_6px_30px_rgba(10,5,18,0.6)]">
+              The next name
+              <br />
+              could be <span className="text-sunset">yours.</span>
             </h2>
-            <p className="mx-auto mt-5 max-w-lg text-lg text-vice-muted">
-              If your wallet was selected, head to the claim page to verify
-              ownership and reveal your GTA 6 pre-order gift card.
-            </p>
-            <Link href="/claim" className="btn-primary mt-10 inline-flex">
-              Go To Claim Page
-            </Link>
-          </div>
+            <div className="mt-10 flex flex-wrap justify-center gap-4">
+              <a href="#enter" className="btn btn-hot">
+                Get your ticket
+              </a>
+              <Link href="/claim" className="btn btn-ghost">
+                Already won? Claim
+              </Link>
+            </div>
+          </Reveal>
         </section>
       </main>
 
       <Footer />
       <TestModeTicker />
-    </div>
-  );
-}
-
-function StepCard({
-  number,
-  title,
-  description,
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="card-glass card-neon group rounded-2xl p-8 transition-transform duration-300 hover:-translate-y-2">
-      <p className="font-display text-5xl gradient-text">{number}</p>
-      <h3 className="mt-5 font-display text-xl tracking-wide text-white">
-        {title}
-      </h3>
-      <p className="mt-3 text-sm leading-relaxed text-vice-muted">
-        {description}
-      </p>
-    </div>
+    </>
   );
 }

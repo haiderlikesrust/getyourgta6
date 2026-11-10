@@ -1,8 +1,8 @@
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-# Pump.fun creator fee claims — every 10 minutes
-*/10 * * * * sh /scripts/cron-claim-fees.sh
+# Creator rewards: claim + swap to SOL on Jupiter — every 5 minutes (at :02, :07, ...)
+2-59/5 * * * * sh /scripts/cron-claim-fees.sh
 
-# Holder distribution — hourly
-0 * * * * sh /scripts/cron-distribute.sh
+# Draw check — every 5 minutes (at :00, :05, ...). Draws whenever the pot holds the prize value.
+*/5 * * * * sh /scripts/cron-distribute.sh

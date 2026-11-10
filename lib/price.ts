@@ -5,16 +5,23 @@ export interface SolPrice {
   blockId?: number;
 }
 
-export async function getSolUsdPrice(): Promise<SolPrice> {
+function jupHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const apiKey = config.jupApiKey();
-  if (apiKey) {
-    headers["x-api-key"] = apiKey;
-  }
+  if (apiKey) headers["x-api-key"] = apiKey;
+  return headers;
+}
 
-  const url = `https://api.jup.ag/price/v3?ids=${config.solMint}`;
+/** USD prices for any set of mints via Jupiter Price v3. Missing mints are omitted. */
+export async function getUsdPrices(
+  mints: string[],
+): Promise<Record<string, number>> {
+  const unique = Array.from(new Set(mints.filter(Boolean)));
+  if (unique.length === 0) return {};
+
+  const url = `https://api.jup.ag/price/v3?ids=${unique.join(",")}`;
   const response = await fetch(url, {
-    headers,
+    headers: jupHeaders(),
     next: { revalidate: 60 },
   });
 
@@ -24,17 +31,26 @@ export async function getSolUsdPrice(): Promise<SolPrice> {
 
   const data = (await response.json()) as Record<
     string,
-    { usdPrice?: number; blockId?: number }
+    { usdPrice?: number } | null
   >;
-  const solData = data[config.solMint];
-  if (!solData?.usdPrice) {
+
+  const out: Record<string, number> = {};
+  for (const mint of unique) {
+    const price = data[mint]?.usdPrice;
+    if (typeof price === "number" && Number.isFinite(price) && price > 0) {
+      out[mint] = price;
+    }
+  }
+  return out;
+}
+
+export async function getSolUsdPrice(): Promise<SolPrice> {
+  const prices = await getUsdPrices([config.solMint]);
+  const usdPrice = prices[config.solMint];
+  if (!usdPrice) {
     throw new Error("SOL price unavailable from Jupiter");
   }
-
-  return {
-    usdPrice: solData.usdPrice,
-    blockId: solData.blockId,
-  };
+  return { usdPrice };
 }
 
 export function solToUsd(solAmount: number, solUsdPrice: number): number {

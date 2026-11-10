@@ -9,6 +9,8 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       TEST_MODE: "false"
+      # the cron container below does the scheduling in this setup
+      WORKER_ENABLED: "false"
     volumes:
       - app_data:/data
     expose:

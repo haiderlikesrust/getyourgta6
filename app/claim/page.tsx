@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Footer } from "@/components/Footer";
-import { Header } from "@/components/Header";
-import { ViceBackground } from "@/components/ViceBackground";
+import { Nav } from "@/components/Nav";
+import { useStats } from "@/components/site-data";
+import { useWallet } from "@/components/wallet";
+import { shortAddress } from "@/lib/format";
 
 type ClaimStep = "enter" | "verify" | "complete" | "error";
-
-type Platform = "playstation" | "xbox";
 
 interface ClaimStartResponse {
   claimId: string;
@@ -17,36 +18,12 @@ interface ClaimStartResponse {
   verifyAmountLamports: number;
   expiresAt: string;
   status: string;
-  platform?: Platform;
+  platform?: string;
   reward: { amountUsd: number; platformLabel: string };
-}
-
-const SESSION_KEY = "gta6-claim-session";
-
-function saveClaimSession(wallet: string, data: ClaimStartResponse) {
-  sessionStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({ wallet, ...data }),
-  );
-}
-
-function loadClaimSession(wallet: string): ClaimStartResponse | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ClaimStartResponse & { wallet: string };
-    if (parsed.wallet !== wallet) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 interface ClaimStatusResponse {
   status: string;
-  tempPubkey?: string;
-  verifyAmountSol?: number;
-  holderWallet?: string;
   message?: string;
   verifiedTxSig?: string;
   refundTxSig?: string;
@@ -61,20 +38,59 @@ interface ClaimStatusResponse {
   };
 }
 
+const SESSION_KEY = "gta6fund:claim-session";
+
+const PLATFORMS: Record<string, { label: string; sub: string }> = {
+  playstation: { label: "PlayStation", sub: "PS Store · US" },
+  xbox: { label: "Xbox", sub: "Microsoft Store · US" },
+};
+
+function saveClaimSession(wallet: string, data: ClaimStartResponse) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ wallet, ...data }));
+  } catch {
+    // storage unavailable
+  }
+}
+
+function loadClaimSession(wallet: string): ClaimStartResponse | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ClaimStartResponse & { wallet: string };
+    return parsed.wallet === wallet ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+const STEPS = ["Wallet", "Console", "Verify", "Code"];
+
 export default function ClaimPage() {
+  const { stats } = useStats();
+  const { address, openModal } = useWallet();
+  const brands = (stats?.brands ?? ["playstation", "xbox"]).filter((b) => PLATFORMS[b]);
+
   const [wallet, setWallet] = useState("");
-  const [platform, setPlatform] = useState<Platform>("playstation");
+  const [platform, setPlatform] = useState<string>("playstation");
   const [step, setStep] = useState<ClaimStep>("enter");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claim, setClaim] = useState<ClaimStartResponse | null>(null);
-  const [claimToken, setClaimToken] = useState<string | null>(null);
-  const [statusData, setStatusData] = useState<ClaimStatusResponse | null>(
-    null,
-  );
+  const [statusData, setStatusData] = useState<ClaimStatusResponse | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const pollStatus = useCallback(
-    async (claimId: string, token: string) => {
+  // Prefill from the connected wallet (still editable).
+  useEffect(() => {
+    if (address && !wallet) setWallet(address);
+  }, [address, wallet]);
+
+  useEffect(() => {
+    if (brands.length > 0 && !brands.includes(platform)) setPlatform(brands[0]);
+  }, [brands, platform]);
+
+  const pollStatus = useCallback(async (claimId: string, token: string) => {
+    try {
       const res = await fetch("/api/claim/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,30 +101,39 @@ export default function ClaimPage() {
 
       if (data.status === "COMPLETE") {
         setStep("complete");
-        sessionStorage.removeItem(SESSION_KEY);
+        try {
+          sessionStorage.removeItem(SESSION_KEY);
+        } catch {
+          // storage unavailable
+        }
         return true;
       }
-      if (data.status === "EXPIRED" || data.status === "ERROR") {
+      if (data.status === "EXPIRED") {
         setStep("error");
-        setError(data.message ?? "Claim failed");
+        setError(data.message ?? "This claim expired. Start again.");
         return true;
       }
-      return false;
-    },
-    [],
-  );
+    } catch {
+      // transient network error: keep polling
+    }
+    return false;
+  }, []);
 
   useEffect(() => {
-    if (step !== "verify" || !claim || !claimToken) return;
-
-    const interval = setInterval(async () => {
-      const done = await pollStatus(claim.claimId, claimToken);
-      if (done) clearInterval(interval);
-    }, 5000);
-
-    pollStatus(claim.claimId, claimToken);
-    return () => clearInterval(interval);
-  }, [step, claim, claimToken, pollStatus]);
+    if (step !== "verify" || !claim) return;
+    let stopped = false;
+    const tick = async () => {
+      if (stopped) return;
+      const done = await pollStatus(claim.claimId, claim.claimToken);
+      if (done) stopped = true;
+    };
+    void tick();
+    const interval = setInterval(tick, 5000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [step, claim, pollStatus]);
 
   async function handleStart(e: React.FormEvent) {
     e.preventDefault();
@@ -116,285 +141,330 @@ export default function ClaimPage() {
     setError(null);
 
     try {
-      const trimmedWallet = wallet.trim();
-      const saved = loadClaimSession(trimmedWallet);
+      const trimmed = wallet.trim();
+      const saved = loadClaimSession(trimmed);
 
       const res = await fetch("/api/claim/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          wallet: trimmedWallet,
+          wallet: trimmed,
           claimToken: saved?.claimToken,
           platform: saved?.platform ?? platform,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "Failed to start claim");
-      }
+      if (!res.ok) throw new Error(data.error ?? "Failed to start claim");
 
       const claimData = data as ClaimStartResponse;
-      saveClaimSession(trimmedWallet, claimData);
+      saveClaimSession(trimmed, claimData);
       setClaim(claimData);
-      setClaimToken(claimData.claimToken);
+      setStatusData(null);
       setStep("verify");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
       setStep("error");
     } finally {
       setLoading(false);
     }
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
+  function copy(text: string, key: string) {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    });
   }
 
-  return (
-    <div className="min-h-screen">
-      <Header />
+  const activeStep = step === "complete" ? 3 : step === "verify" ? 2 : wallet.trim() ? 1 : 0;
+  const processing =
+    step === "verify" && !!statusData?.status && statusData.status !== "PENDING";
 
-      <main className="relative min-h-screen overflow-hidden px-6 pb-24 pt-36">
-        <ViceBackground withSun={false} />
-        <div className="relative z-10 mx-auto max-w-xl">
-          <div className="mb-10 text-center">
-            <p className="eyebrow mx-auto mb-4 w-fit">Winner Verification</p>
-            <h1 className="mt-4 font-display text-5xl tracking-wide text-white sm:text-6xl">
-              CLAIM YOUR <span className="gradient-text">REWARD</span>
+  return (
+    <>
+      <Nav />
+
+      <main className="relative min-h-[100svh] overflow-hidden px-5 pb-28 pt-[calc(var(--nav-h)+3.5rem)] sm:px-8">
+        <div
+          className="pointer-events-none absolute -right-40 -top-40 h-[640px] w-[640px] rounded-full opacity-45 blur-[130px]"
+          style={{ background: "radial-gradient(circle,#ff8a3d,#ff2d8e 45%,transparent 70%)" }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -left-56 bottom-0 h-[520px] w-[520px] rounded-full opacity-30 blur-[130px]"
+          style={{ background: "radial-gradient(circle,#a445ff,transparent 65%)" }}
+          aria-hidden
+        />
+
+        <div className="relative mx-auto grid max-w-[1180px] gap-14 lg:grid-cols-[1fr_1.05fr]">
+          {/* ---------------- left: story ---------------- */}
+          <div className="rise rise-1">
+            <p className="label text-gold">Winners only</p>
+            <h1 className="h-display mt-3 text-[clamp(3.6rem,9vw,7rem)]">
+              Claim your
+              <br />
+              <span className="text-sunset">gift card.</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-vice-muted">
-              Choose PlayStation or Xbox, then prove wallet ownership with a
-              0.01 SOL verification transfer. Your SOL will be refunded minus a
-              small network fee.
+            <p className="mt-6 max-w-md text-lg text-haze">
+              If your wallet was drawn, this is where you pick a console and
+              collect the code. It takes about two minutes.
+            </p>
+
+            <ol className="mt-10 space-y-1">
+              {STEPS.map((label, i) => (
+                <li key={label} className="flex items-center gap-4 py-2">
+                  <span
+                    className={`font-display grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg font-black italic transition ${
+                      i < activeStep
+                        ? "bg-teal text-ink"
+                        : i === activeStep
+                          ? "bg-gold text-ink"
+                          : "bg-white/10 text-haze"
+                    }`}
+                  >
+                    {i < activeStep ? "✓" : i + 1}
+                  </span>
+                  <span
+                    className={`font-display text-2xl font-extrabold uppercase italic tracking-wide ${
+                      i <= activeStep ? "text-cream" : "text-haze/70"
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <p className="mt-10 max-w-md text-sm leading-relaxed text-haze">
+              Verification is a {claim?.verifyAmountSol ?? 0.01} SOL transfer from the
+              winning wallet. It proves the wallet is yours and is sent straight
+              back, minus the network fee. We never ask for a seed phrase.
             </p>
           </div>
 
-          {step === "enter" && (
-            <form
-              onSubmit={handleStart}
-              className="card-glass card-neon rounded-2xl p-8"
-            >
-              <label className="block text-xs uppercase tracking-widest text-vice-muted">
-                Your Winning Wallet Address
-              </label>
-              <input
-                type="text"
-                value={wallet}
-                onChange={(e) => setWallet(e.target.value)}
-                placeholder="Enter your Solana wallet address"
-                className="mt-3 w-full rounded border border-white/10 bg-vice-black px-4 py-3 font-mono text-sm text-white placeholder:text-vice-muted/50 focus:border-vice-pink focus:outline-none"
-                required
-              />
-
-              <p className="mt-6 text-xs uppercase tracking-widest text-vice-muted">
-                Choose your platform
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPlatform("playstation")}
-                  className={`rounded-xl border px-4 py-4 text-left transition ${
-                    platform === "playstation"
-                      ? "border-vice-pink bg-vice-pink/10"
-                      : "border-white/10 bg-vice-black/40 hover:border-white/25"
-                  }`}
-                >
-                  <p className="font-display text-sm text-white">PlayStation</p>
-                  <p className="mt-1 text-xs text-vice-muted">PS Store USD</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPlatform("xbox")}
-                  className={`rounded-xl border px-4 py-4 text-left transition ${
-                    platform === "xbox"
-                      ? "border-vice-teal bg-vice-teal/10"
-                      : "border-white/10 bg-vice-black/40 hover:border-white/25"
-                  }`}
-                >
-                  <p className="font-display text-sm text-white">Xbox</p>
-                  <p className="mt-1 text-xs text-vice-muted">Xbox Store USD</p>
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !wallet.trim()}
-                className="btn-primary mt-6 w-full"
-              >
-                {loading ? "Checking..." : "Start Claim"}
-              </button>
-            </form>
-          )}
-
-          {step === "verify" && claim && (
-            <div className="card-glass card-neon rounded-2xl p-8 space-y-6">
-              <div className="rounded border border-vice-teal/30 bg-vice-teal/5 p-4">
-                <p className="text-xs uppercase tracking-widest text-vice-teal">
-                  You won!
-                </p>
-                <p className="mt-2 font-display text-xl text-white">
-                  ${claim.reward.amountUsd}{" "}
-                  {claim.reward.platformLabel} Gift Card
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm text-vice-muted">
-                  Send exactly{" "}
-                  <strong className="text-white">
-                    {claim.verifyAmountSol} SOL
-                  </strong>{" "}
-                  from your winning wallet to this temporary address:
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <code className="flex-1 break-all rounded border border-white/10 bg-vice-black px-3 py-2 font-mono text-xs text-vice-teal">
-                    {claim.tempPubkey}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard(claim.tempPubkey)}
-                    className="btn-secondary shrink-0 px-3 py-2 text-xs"
-                  >
-                    Copy
+          {/* ---------------- right: flow ---------------- */}
+          <div className="rise rise-3">
+            {step === "enter" && (
+              <form onSubmit={handleStart} className="panel p-7 sm:p-9">
+                <label htmlFor="wallet" className="label text-haze">
+                  Winning wallet address
+                </label>
+                <input
+                  id="wallet"
+                  type="text"
+                  value={wallet}
+                  onChange={(e) => setWallet(e.target.value)}
+                  placeholder="Solana address"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="mt-3 w-full rounded-xl bg-ink/70 px-4 py-3.5 font-mono text-sm text-cream shadow-[inset_0_0_0_1px_rgba(255,255,255,0.16)] outline-none transition placeholder:text-haze/50 focus:shadow-[inset_0_0_0_2px_var(--color-gold)]"
+                  required
+                />
+                {!address && (
+                  <button type="button" onClick={openModal} className="link-arrow mt-3 text-sm">
+                    or connect a wallet to fill it in →
                   </button>
+                )}
+
+                <p className="label mt-8 text-haze">Pick your console</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {brands.map((brand) => {
+                    const selected = platform === brand;
+                    return (
+                      <button
+                        key={brand}
+                        type="button"
+                        onClick={() => setPlatform(brand)}
+                        aria-pressed={selected}
+                        className={`rounded-xl px-5 py-5 text-left transition ${
+                          selected
+                            ? "bg-gold text-ink"
+                            : "bg-white/[0.06] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] hover:bg-white/[0.11]"
+                        }`}
+                      >
+                        <span className="h-display block text-3xl">{PLATFORMS[brand].label}</span>
+                        <span className={`mt-1 block text-sm ${selected ? "text-ink/70" : "text-haze"}`}>
+                          {PLATFORMS[brand].sub}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button type="submit" disabled={loading || !wallet.trim()} className="btn btn-hot mt-8 w-full">
+                  {loading ? "Checking the guest list…" : "Start my claim"}
+                </button>
+              </form>
+            )}
+
+            {step === "verify" && claim && (
+              <div className="panel overflow-hidden">
+                <div className="px-7 py-6 text-ink sm:px-9" style={{ background: "var(--sunset-gradient)" }}>
+                  <p className="label">You won</p>
+                  <p className="h-display mt-1 text-5xl">
+                    ${claim.reward.amountUsd} {claim.reward.platformLabel}
+                  </p>
+                </div>
+                <div className="space-y-6 p-7 sm:p-9">
+                  {processing ? (
+                    <div>
+                      <p className="h-display text-4xl">Verified.</p>
+                      <p className="mt-2 text-haze">
+                        {statusData?.message ?? "Buying your gift card now. Keep this tab open."}
+                      </p>
+                      <div className="meter mt-5">
+                        <div className="meter__fill" style={{ width: "100%" }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-lg">
+                        Send exactly{" "}
+                        <strong className="text-gold">{claim.verifyAmountSol} SOL</strong> from{" "}
+                        <span className="font-mono text-base">{shortAddress(wallet.trim(), 5)}</span> to
+                        this one-time address:
+                      </p>
+                      <div className="flex items-stretch gap-2">
+                        <code className="flex-1 break-all rounded-xl bg-ink/70 px-4 py-3 font-mono text-sm text-teal shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+                          {claim.tempPubkey}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => copy(claim.tempPubkey, "addr")}
+                          className="btn btn-ghost btn-sm h-auto shrink-0"
+                        >
+                          {copied === "addr" ? "Copied" : "Copy"}
+                        </button>
+                      </div>
+                      <p className="flex items-center gap-3 text-haze">
+                        <span className="dot-live" />
+                        Watching the chain for your transfer…
+                      </p>
+                    </>
+                  )}
+                  <p className="text-sm text-haze">
+                    This claim expires {new Date(claim.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
+                    It must come from the winning wallet, not an exchange.
+                  </p>
                 </div>
               </div>
+            )}
 
-              <div className="flex items-center gap-3 text-sm text-vice-muted">
-                <div className="h-2 w-2 rounded-full bg-vice-pink pulse-glow" />
-                Waiting for verification transaction...
-              </div>
-
-              <p className="text-xs text-vice-muted">
-                Expires: {new Date(claim.expiresAt).toLocaleString()}
-              </p>
-            </div>
-          )}
-
-          {step === "complete" && statusData?.reward && (
-            <div className="card-glass card-neon rounded-2xl p-8 space-y-6">
-              <div className="text-center">
-                <p className="font-display text-2xl gradient-text">
-                  VERIFIED!
-                </p>
-                <p className="mt-2 text-vice-muted">
-                  Your gift card is ready. Save these details — they won&apos;t
-                  be shown again.
-                </p>
-              </div>
-
-              <div className="rounded border border-vice-pink/30 bg-vice-pink/5 p-6 space-y-4">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-vice-muted">
-                    Brand
-                  </p>
-                  <p className="font-display text-lg text-white uppercase">
+            {step === "complete" && statusData?.reward && (
+              <div className="panel overflow-hidden">
+                <div className="px-7 py-6 text-ink sm:px-9" style={{ background: "var(--sunset-gradient)" }}>
+                  <p className="label">Enjoy the game</p>
+                  <p className="h-display mt-1 text-5xl">
+                    ${statusData.reward.amountUsd}{" "}
                     {statusData.reward.platformLabel ?? statusData.reward.brand}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-vice-muted">
-                    Amount
-                  </p>
-                  <p className="font-display text-lg text-white">
-                    ${statusData.reward.amountUsd}
-                  </p>
-                </div>
-                {statusData.reward.code && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-vice-muted">
-                      Gift Card Code
+                <div className="space-y-6 p-7 sm:p-9">
+                  {statusData.reward.code ? (
+                    <>
+                      <p className="rounded-xl bg-magenta/15 px-4 py-3 text-sm text-rose">
+                        Save this now. For your security the code is shown only once.
+                      </p>
+                      <div>
+                        <p className="label text-haze">Gift card code</p>
+                        <div className="mt-2 flex items-stretch gap-2">
+                          <code className="flex-1 break-all rounded-xl bg-ink/70 px-4 py-3.5 font-mono text-xl text-gold shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+                            {statusData.reward.code}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => copy(statusData.reward!.code!, "code")}
+                            className="btn btn-gold btn-sm h-auto shrink-0"
+                          >
+                            {copied === "code" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                      {statusData.reward.pin && (
+                        <div>
+                          <p className="label text-haze">PIN</p>
+                          <code className="mt-1 block font-mono text-xl text-gold">{statusData.reward.pin}</code>
+                        </div>
+                      )}
+                      {statusData.reward.link && (
+                        <div>
+                          <p className="label text-haze">Redemption link</p>
+                          <a
+                            href={statusData.reward.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 block break-all font-mono text-sm text-teal underline-offset-4 hover:underline"
+                          >
+                            {statusData.reward.link}
+                          </a>
+                        </div>
+                      )}
+                      {statusData.reward.instructions && (
+                        <div>
+                          <p className="label text-haze">How to redeem</p>
+                          <p className="mt-1 text-sm leading-relaxed text-cream/85">
+                            {statusData.reward.instructions}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-haze">
+                      {statusData.message ??
+                        "This gift card was already revealed on your first confirmation screen."}
                     </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <code className="flex-1 break-all font-mono text-lg text-vice-teal">
-                        {statusData.reward.code}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(statusData.reward!.code!)}
-                        className="btn-secondary shrink-0 px-3 py-2 text-xs"
+                  )}
+
+                  {statusData.refundTxSig && (
+                    <p className="text-sm text-haze">
+                      Verification SOL refunded ·{" "}
+                      <a
+                        href={`https://solscan.io/tx/${statusData.refundTxSig}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal underline-offset-4 hover:underline"
                       >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {statusData.reward.pin && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-vice-muted">
-                      PIN
+                        view transaction
+                      </a>
                     </p>
-                    <code className="font-mono text-lg text-vice-teal">
-                      {statusData.reward.pin}
-                    </code>
-                  </div>
-                )}
-                {statusData.reward.link && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-vice-muted">
-                      Redemption Link
-                    </p>
-                    <a
-                      href={statusData.reward.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 block break-all font-mono text-sm text-vice-teal hover:underline"
-                    >
-                      {statusData.reward.link}
-                    </a>
-                  </div>
-                )}
-                {statusData.reward.instructions && (
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-vice-muted">
-                      How To Redeem
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-white/80">
-                      {statusData.reward.instructions}
-                    </p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+            )}
 
-              {statusData.refundTxSig && (
-                <p className="text-xs text-vice-muted">
-                  Refund sent. Tx:{" "}
-                  <a
-                    href={`https://solscan.io/tx/${statusData.refundTxSig}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-vice-teal hover:underline"
-                  >
-                    {statusData.refundTxSig.slice(0, 16)}...
-                  </a>
+            {step === "error" && (
+              <div className="panel p-7 sm:p-9">
+                <p className="h-display text-4xl">Not this time.</p>
+                <p className="mt-3 text-haze">{error}</p>
+                <p className="mt-3 text-sm text-haze">
+                  Only a wallet that was drawn can claim, and each win can be
+                  claimed once. Check the guest list on the home page.
                 </p>
-              )}
-            </div>
-          )}
-
-          {step === "error" && (
-            <div className="card-glass rounded-2xl p-8 text-center">
-              <p className="font-display text-xl text-vice-pink">Error</p>
-              <p className="mt-3 text-vice-muted">{error}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("enter");
-                  setError(null);
-                  setClaim(null);
-                  setClaimToken(null);
-                }}
-                className="btn-secondary mt-6"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
+                <div className="mt-7 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("enter");
+                      setError(null);
+                      setClaim(null);
+                      setStatusData(null);
+                    }}
+                    className="btn btn-hot btn-sm"
+                  >
+                    Try another wallet
+                  </button>
+                  <Link href="/#winners" className="btn btn-ghost btn-sm">
+                    See winners
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
       <Footer />
-    </div>
+    </>
   );
 }

@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/claim-fees",
-      "schedule": "*/10 * * * *"
+      "schedule": "2-59/5 * * * *"
     },
     {
       "path": "/api/cron/distribute",
-      "schedule": "0 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

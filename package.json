@@ -1,5 +1,5 @@
 {
-  "name": "gta6-preorder-fund",
+  "name": "gta6-fund",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,7 +14,10 @@
   "dependencies": {
     "@prisma/client": "^6.9.0",
     "@pump-fun/pump-sdk": "^1.36.0",
+    "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.2",
+    "@wallet-standard/app": "^1.1.1",
+    "@wallet-standard/base": "^1.1.1",
     "bs58": "^6.0.0",
     "next": "^15.3.3",
     "react": "^19.1.0",

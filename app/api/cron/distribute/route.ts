@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeCron } from "@/lib/cron-auth";
 import { config } from "@/lib/config";
 import { runDistribution } from "@/lib/distribute";
-import {
-  fetchTokenHolders,
-  filterEligibleHolders,
-  pickRandomHolder,
-} from "@/lib/helius";
+import { buildDrawPool, drawRules, pickWeightedWinner } from "@/lib/draw";
 import { rateLimit } from "@/lib/rate-limit";
 import { safeClientError } from "@/lib/security";
 
@@ -26,30 +22,24 @@ export async function GET(request: NextRequest) {
 
   if (dryRun) {
     try {
-      const holders = await fetchTokenHolders();
-      const eligible = filterEligibleHolders(
-        holders,
-        config.excludeAddresses(),
-        config.minHolding(),
-      );
-
-      if (eligible.length === 0) {
-        return NextResponse.json({
-          status: "dry_run",
-          reason: "no_eligible_holders",
-          totalHolders: holders.length,
-          eligibleHolders: 0,
-        });
-      }
-
-      const winner = pickRandomHolder(eligible);
+      const pool = await buildDrawPool();
+      const winner = pickWeightedWinner(pool.entrants);
 
       return NextResponse.json({
         status: "dry_run",
-        totalHolders: holders.length,
-        eligibleHolders: eligible.length,
+        rules: drawRules(),
+        totalHolders: pool.totalHolders,
+        optIns: pool.optIns,
+        boostedHolders: pool.holderEntrants,
+        openEntries: pool.openEntrants,
+        totalTickets: pool.totalTickets,
         winner: winner
-          ? { wallet: winner.owner, amount: winner.amount }
+          ? {
+              wallet: winner.wallet,
+              tier: winner.tier,
+              tickets: winner.weight,
+              amount: winner.amount,
+            }
           : null,
         note: "No reward created. Remove ?dryRun=true for a real distribution.",
       });

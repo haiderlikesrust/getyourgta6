@@ -1,150 +1,118 @@
-# GTA6 Preorder Fund — Holder Rewards App
+# GTA6 Fund
 
-A Next.js app that rewards random pump.fun token holders with GTA 6 preorder gift cards (PlayStation / Xbox via Bitrefill). Styled after the [GTA VI website](https://www.rockstargames.com/VI) aesthetic.
+Suggested domain `gta6fund.xyz` · coin "GTA 6 Fund" · ticker `$GTA6FUND`
 
-**This is an unofficial fan project.** Not affiliated with Rockstar Games, Take-Two Interactive, PlayStation, Xbox, or Bitrefill.
+A Next.js app that gives away $100 PlayStation / Xbox gift cards (enough for a
+GTA 6 pre-order), funded by a pump.fun coin's creator rewards.
+
+**Unofficial fan project.** Not affiliated with Rockstar Games, Take-Two
+Interactive, Sony, Microsoft or Bitrefill.
+
+The site name lives in one file: [`lib/brand.ts`](lib/brand.ts).
 
 ## How it works
 
-1. **Hourly check** — A cron job reads the reward wallet SOL balance and converts it to USD via Jupiter Price API.
-2. **Threshold** — If `available balance (USD) - allocated ledger >= $100`, a reward is triggered.
-3. **Random winner** — All token holders are snapshotted via Helius `getTokenAccounts`, filtered for eligibility, and one is picked at random.
-4. **Gift card** — A $100 PlayStation or Xbox gift card is purchased (mocked for now; Bitrefill-ready interface).
-5. **Claim** — The winner visits `/claim`, enters their wallet, sends 0.01 SOL from that wallet to a temp address to prove ownership, gets refunded, and receives the gift card code.
-
-## Tech stack
-
-- **Next.js 15** (App Router) + Tailwind CSS v4
-- **Prisma** + SQLite
-- **@solana/web3.js** for on-chain operations
-- **Helius** for holder snapshots
-- **Jupiter** for SOL/USD price
+1. **Creator rewards come in** as a token (default: TTWO tokenized stock,
+   `REWARD_TOKEN_MINT`). Every 5 minutes a cron claims them and swaps them to
+   SOL on Jupiter into the treasury wallet.
+2. **The pot is checked every 5 minutes.** When it holds enough to actually buy
+   a card (`REWARD_THRESHOLD_USD` + `PRIZE_BUFFER_PERCENT`), a draw fires. If
+   the pot covers several cards, one is drawn per check.
+3. **Who is in the draw**
+   - *Walk-in*: anyone who connects a wallet and signs the free opt-in
+     message gets **1 ticket**. No coin needed.
+   - *High roller*: any wallet holding at least `HOLDER_BOOST_PERCENT` (0.1%)
+     of supply gets `HOLDER_BOOST_MULTIPLIER` (10) tickets, automatically.
+   - Program-owned accounts (bonding curve, pools) and `EXCLUDE_ADDRESSES`
+     can never win.
+4. **One ticket is pulled** with Node's cryptographic RNG. The winner, their
+   tier and their odds are published.
+5. **The winner claims** on `/claim`: picks a console, proves wallet ownership
+   with a 0.01 SOL transfer (refunded), and the gift card is bought on Bitrefill
+   — paid from the treasury in SOL or USDC on Solana — and revealed once.
 
 ## Setup
-
-### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Configure environment
-
-Copy `.env.example` to `.env` and fill in values:
-
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Description |
-|----------|-------------|
-| `HELIUS_API_KEY` | Helius API key for RPC + holder snapshots |
-| `TOKEN_MINT` | Your pump.fun token mint address |
-| `SOLANA_RPC_URL` | Helius mainnet RPC URL |
-| `REWARD_WALLET_SECRET` | Base58-encoded secret key for reward wallet |
-| `CRON_SECRET` | Secret to protect the cron endpoint |
-| `ENCRYPTION_KEY` | 64-char hex string (32 bytes) for AES-256-GCM |
-| `REWARD_THRESHOLD_USD` | USD threshold before distributing (default: 100) |
-| `VERIFY_AMOUNT_SOL` | SOL amount for wallet verification (default: 0.01) |
-| `MIN_HOLDING` | Minimum tokens to be eligible (default: 1) |
-| `GIFT_CARD_BRANDS` | Comma-separated: `playstation,xbox` |
-| `JUP_API_KEY` | Optional Jupiter API key |
-
-Generate an encryption key:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-### 3. Initialize database
+Fill in `.env` (every variable is documented in `.env.example`), then:
 
 ```bash
 npm run db:push
 ```
 
-### 4. Run development server
-
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+## Cron
 
-## Hourly cron
+| Endpoint | Schedule | What it does |
+|----------|----------|--------------|
+| `/api/cron/claim-fees` | every 5 min | claim creator rewards, swap to SOL on Jupiter |
+| `/api/cron/distribute` | every 5 min | draw a winner if the pot can buy a card |
 
-### Vercel (production)
+Both need `x-cron-secret: $CRON_SECRET` (or `Authorization: Bearer`).
+`docker/crontab` and `vercel.json` are already set to 5 minutes. On Vercel,
+5-minute crons need a paid plan.
 
-`vercel.json` configures an hourly cron hitting `/api/cron/distribute`. Set `CRON_SECRET` in Vercel env vars. Vercel sends it as `Authorization: Bearer <CRON_SECRET>`.
+`/api/cron/distribute?dryRun=true` builds the real pool and picks a winner
+without creating a reward.
 
-### Manual / local trigger
-
-```bash
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron/distribute
-```
-
-### External scheduler
-
-Use any cron service (cron-job.org, GitHub Actions, etc.) to POST/GET the endpoint hourly with the `Authorization` header or `x-cron-secret` header.
-
-## API endpoints
+## API
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/stats` | GET | Public | Reward pool stats + recent winners |
-| `/api/cron/distribute` | GET/POST | `CRON_SECRET` | Hourly distribution job |
-| `/api/claim/start` | POST | Public | Start claim for winning wallet |
-| `/api/claim/status` | GET | Public | Poll claim verification status |
+| `/api/stats` | GET | public | pot, pool, winners, paper trail |
+| `/api/enter/challenge` | POST | public | message for a wallet to sign |
+| `/api/enter` | POST | wallet signature | opt a wallet in (idempotent) |
+| `/api/enter/status` | GET | public | a wallet's tickets, odds, wins |
+| `/api/claim/start` | POST | public | start a claim for a winning wallet |
+| `/api/claim/status` | POST | claim token | verify, buy, reveal |
+| `/api/cron/*` | GET/POST | `CRON_SECRET` | the two jobs above |
 
-## Claim flow
+## Going live checklist
 
-1. Winner enters wallet address on `/claim`
-2. Server checks for an `UNCLAIMED` reward for that wallet
-3. A temporary Solana keypair is generated; user sends 0.01 SOL from their winning wallet to the temp address
-4. Server detects the incoming transfer, verifies sender matches the winning wallet
-5. Server refunds 0.01 SOL and sweeps remaining funds to the reward wallet
-6. Gift card code is revealed to the user
+- `TOKEN_MINT`, `HELIUS_API_KEY`, `SOLANA_RPC_URL`, a dedicated
+  `REWARD_WALLET_SECRET` with a little SOL for fees.
+- `PUMP_CREATOR_WALLET_SECRET` if the coin's creator wallet is not the treasury.
+- Bitrefill: `BITREFILL_API_KEY`, `BITREFILL_MODE=live`,
+  `BITREFILL_PRODUCT_PLAYSTATION` / `_XBOX`
+  (`npx tsx --env-file=.env scripts/find-products.ts playstation`).
+  Check what Bitrefill charges for the $100 card and set `PRIZE_BUFFER_PERCENT`
+  to match.
+- Run one end-to-end claim with `BITREFILL_MODE=test` first.
+- `OPT_IN_MIN_SOL` above 0 if free entries get farmed with empty wallets.
 
-## Gift cards (mock mode)
+## Scripts
 
-Gift card purchases are currently **mocked** in `lib/bitrefill.ts`. Codes are randomly generated placeholders. When you have Bitrefill API access, replace `purchaseGiftCard()` with the real API call.
+| Script | Purpose |
+|--------|---------|
+| `scripts/test-entry-flow.ts` | opt-in flow + draw fairness check against a running server |
+| `scripts/test-holder-pick.ts` | run the weighted draw on the live pool, no rewards created |
+| `scripts/check-pump-fees.ts` | show the creator vault balance |
+| `scripts/trigger-pump-claim.ts` | run the claim + swap job once |
+| `scripts/trigger-cron.ts` | run the draw job once |
+| `scripts/find-products.ts` | look up Bitrefill product ids |
 
-## Security notes
+## Safety notes
 
-- **Never commit** `.env` or expose `REWARD_WALLET_SECRET` / `ENCRYPTION_KEY`
-- Reward wallet private key must be stored securely (env vars, secrets manager)
-- Cron endpoint is protected by `CRON_SECRET`
-- Gift card codes and temp wallet secrets are encrypted at rest with AES-256-GCM
-- Verification requires sending from the exact winning wallet address
+- Payments are resumable: the provider invoice id and the payment signature are
+  stored on the reward *before* the transaction is broadcast, so a timeout or
+  restart continues the same order instead of paying twice.
+- A payment is refused unless the amount Bitrefill asks for is worth roughly
+  the card's value.
+- Swaps are refused above `SWAP_MAX_PRICE_IMPACT_PERCENT`.
+- Gift card codes and temp wallet keys are encrypted at rest (AES-256-GCM).
+- Never commit `.env`.
 
-## Legal disclaimer
+## Legal
 
-This is a community giveaway mechanism. You are responsible for:
-- Compliance with local gambling/giveaway laws
-- Trademark usage (Rockstar, GTA, PlayStation, Xbox)
-- Tax implications for recipients
-- Terms of service for pump.fun and Solana
-
-Mark the site clearly as unofficial and not endorsed by any brand.
-
-## Project structure
-
-```
-app/
-  page.tsx              # Landing page
-  claim/page.tsx        # Claim flow UI
-  api/
-    stats/route.ts      # Public stats
-    cron/distribute/    # Hourly job
-    claim/start/        # Start claim
-    claim/status/       # Poll + verify + reveal
-components/             # Header, Footer, StatsPanel
-lib/
-  config.ts             # Env config
-  db.ts                 # Prisma client
-  helius.ts             # Holder snapshots
-  price.ts              # Jupiter SOL price
-  solana.ts             # Wallet ops + verification
-  bitrefill.ts          # Mock gift card purchase
-  crypto.ts             # AES encryption
-prisma/schema.prisma    # Database schema
-```
+You are responsible for giveaway / sweepstakes rules where you operate, for
+trademark use, and for taxes. Keep the site clearly marked as unofficial.

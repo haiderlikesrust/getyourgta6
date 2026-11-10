@@ -29,3 +29,7 @@ terminals
 *.md
 coverage
 .DS_Store
+
+# local tooling / docs
+.claude
+docs

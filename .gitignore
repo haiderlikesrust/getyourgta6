@@ -42,3 +42,8 @@ next-env.d.ts
 # prisma
 /prisma/*.db
 /prisma/*.db-journal
+
+# local test output
+.standalone-test.log
+/prisma/*.db-shm
+/prisma/*.db-wal

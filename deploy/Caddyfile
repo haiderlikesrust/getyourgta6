@@ -1,4 +1,8 @@
-getyourgta6.fun {
+gta6fund.xyz {
 	encode gzip
 	reverse_proxy app:3000
+}
+
+www.gta6fund.xyz {
+	redir https://gta6fund.xyz{uri} permanent
 }

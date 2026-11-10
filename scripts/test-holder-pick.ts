@@ -1,85 +1,60 @@
 /**
- * Test the random holder selector without funding the wallet or buying gift cards.
+ * Test the weighted draw without funding the wallet or buying gift cards.
+ * Uses the live holder snapshot + the opt-ins in your database.
  *
  * Usage:
  *   npx tsx --env-file=.env scripts/test-holder-pick.ts
- *   npx tsx --env-file=.env scripts/test-holder-pick.ts --runs 10
- *   npx tsx --env-file=.env scripts/test-holder-pick.ts --mint YOUR_TOKEN_MINT
+ *   npx tsx --env-file=.env scripts/test-holder-pick.ts --runs 1000
  */
 
-import { config } from "../lib/config";
-import {
-  fetchTokenHolders,
-  filterEligibleHolders,
-  pickRandomHolder,
-} from "../lib/helius";
+import { buildDrawPool, drawRules, pickWeightedWinner } from "../lib/draw";
 
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let runs = 5;
-  let mint: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--runs" && args[i + 1]) {
-      runs = Number.parseInt(args[i + 1], 10);
-      i += 1;
-    } else if (args[i] === "--mint" && args[i + 1]) {
-      mint = args[i + 1];
-      i += 1;
-    }
-  }
-
-  return { runs: Number.isFinite(runs) && runs > 0 ? runs : 5, mint };
+function parseRuns(): number {
+  const idx = process.argv.indexOf("--runs");
+  const runs = idx >= 0 ? Number.parseInt(process.argv[idx + 1] ?? "", 10) : 5;
+  return Number.isFinite(runs) && runs > 0 ? runs : 5;
 }
 
 async function main() {
-  const { runs, mint } = parseArgs();
-  const tokenMint = mint ?? config.tokenMint();
+  const runs = parseRuns();
+  const rules = drawRules();
 
-  console.log("=== Holder selector test ===");
-  console.log("Token mint:", tokenMint);
-  console.log("Min holding:", config.minHolding());
-  console.log("Excluded wallets:", config.excludeAddresses().size);
-  console.log("");
-
-  console.log("Fetching holders from Helius...");
-  const holders = await fetchTokenHolders(tokenMint);
-  console.log(`Total unique holders: ${holders.length}`);
-
-  const eligible = filterEligibleHolders(
-    holders,
-    config.excludeAddresses(),
-    config.minHolding(),
+  console.log("=== Weighted draw test ===");
+  console.log(
+    `Rules: hold >= ${rules.boostPercent}% of supply -> ${rules.boostMultiplier} tickets, opt-in -> 1 ticket`,
   );
-  console.log(`Eligible holders: ${eligible.length}`);
+  console.log(`Holders auto-entered: ${rules.holdersAutoEnter}\n`);
 
-  if (eligible.length === 0) {
-    console.log("\nNo eligible holders. Check TOKEN_MINT and MIN_HOLDING.");
+  const pool = await buildDrawPool();
+  console.log(`Token holders:        ${pool.totalHolders}`);
+  console.log(`Opt-ins in database:  ${pool.optIns}`);
+  console.log(`Boosted holders:      ${pool.holderEntrants}`);
+  console.log(`Open entries:         ${pool.openEntrants}`);
+  console.log(`Total tickets:        ${pool.totalTickets}`);
+
+  if (pool.entrants.length === 0) {
+    console.log("\nNobody is in the draw. Check TOKEN_MINT and opt-ins.");
     process.exit(1);
   }
 
-  console.log(`\nRunning ${runs} random pick(s):\n`);
-
-  const seen = new Set<string>();
+  const wins = { holder: 0, open: 0 };
+  console.log(`\nRunning ${runs} pick(s):\n`);
   for (let i = 1; i <= runs; i++) {
-    const winner = pickRandomHolder(eligible);
+    const winner = pickWeightedWinner(pool.entrants);
     if (!winner) break;
-    seen.add(winner.owner);
-    console.log(
-      `Pick ${i}: ${winner.owner} (amount: ${winner.amount.toLocaleString()})`,
-    );
+    wins[winner.tier] += 1;
+    if (runs <= 20) {
+      console.log(
+        `Pick ${i}: ${winner.wallet} [${winner.tier}, ${winner.weight} ticket(s)]`,
+      );
+    }
   }
 
-  console.log(`\nUnique winners in ${runs} picks: ${seen.size}/${runs}`);
-  if (runs > 1 && seen.size === 1 && eligible.length > 1) {
-    console.log("(Same wallet twice can happen by chance with few runs)");
-  }
-
-  console.log("\nTop 5 holders by balance:");
-  const top = [...eligible].sort((a, b) => b.amount - a.amount).slice(0, 5);
-  for (const h of top) {
-    console.log(`  ${h.owner} — ${h.amount.toLocaleString()}`);
-  }
+  const holderTickets = pool.holderEntrants * rules.boostMultiplier;
+  console.log(
+    `\nHolder wins: ${wins.holder}/${runs} (expected ~${((holderTickets / pool.totalTickets) * 100).toFixed(1)}%)`,
+  );
+  console.log(`Open wins:   ${wins.open}/${runs}`);
 }
 
 main().catch((err) => {
